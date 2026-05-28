@@ -128,21 +128,17 @@ class SiteProfile:
 
 
 def _solebox_size_selectors(size: str) -> list[str]:
-    import re
-
-    escaped = re.escape(size)
+    # Solebox (Deichmann/Angular) renders size buttons as
+    # <button class="size cursor-pointer">44</button>. Match the size class
+    # with an exact text so "44" never hits "44 ½".
     return [
+        f'xpath=//button[contains(concat(" ", normalize-space(@class), " "), " size ") and normalize-space()="{size}"]',
+        f'xpath=//button[contains(concat(" ", normalize-space(@class), " "), " size ")][.//span[normalize-space()="{size}"]]',
         f'xpath=//button[normalize-space()="{size}"]',
         f'xpath=//*[@role="button" and normalize-space()="{size}"]',
         f'xpath=//*[normalize-space()="{size}"]/ancestor::button[1]',
-        f'xpath=//*[normalize-space()="{size}" and (self::button or self::div or self::span)]',
-        f'button:has-text("{size}")',
-        f'text="{size}"',
-        f'[role="button"]:has-text("{size}")',
+        f'xpath=//span[contains(@class,"size-name") and normalize-space()="{size}"]/ancestor::button[1]',
         f'[aria-label="{size}"]',
-        f'[aria-label*="{size}"]',
-        f'[data-testid*="{size}"]',
-        f'text=/^{escaped}$/',
     ]
 
 

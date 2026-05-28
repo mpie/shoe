@@ -12,6 +12,7 @@ import inspect
 import os
 import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -37,6 +38,30 @@ AUTOMATION_Y = 40
 # Persistent browser contexts keyed by site so each site keeps its own login
 # session and reuses one window across runs.
 OPEN_CONTEXTS: dict[str, tuple[Any, Any]] = {}
+
+# All Playwright automation runs on ONE dedicated thread with ONE Playwright
+# instance. Sync Playwright cannot run concurrently across threads, so multiple
+# monitors must share a single automation worker (browser actions serialize,
+# which is fine — each cart grab is short).
+_AUTOMATION_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="automation")
+_PLAYWRIGHT: Any = None
+
+
+def _get_playwright() -> Any:
+    """Return the process-wide Playwright instance (started on first use).
+
+    Must only be called from the automation executor thread.
+    """
+    global _PLAYWRIGHT
+    if _PLAYWRIGHT is None:
+        _PLAYWRIGHT = sync_playwright().start()
+    return _PLAYWRIGHT
+
+
+async def _run_automation(fn, *args) -> Any:
+    """Run a sync Playwright automation on the dedicated automation thread."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_AUTOMATION_EXECUTOR, fn, *args)
 
 
 @dataclass
@@ -171,7 +196,7 @@ class SiteMonitor:
     async def _run_test_automation(self) -> None:
         state = self.snapshot()
         try:
-            automation_log, outcome = await asyncio.to_thread(
+            automation_log, outcome = await _run_automation(
                 self._select_size_and_add_to_cart,
                 state["targetUrl"],
                 state["size"],
@@ -252,7 +277,7 @@ class SiteMonitor:
                         )
                         self._append_log_unlocked(f'Automatisering gestart voor maat {state["size"]}.')
 
-                    automation_log, outcome = await asyncio.to_thread(
+                    automation_log, outcome = await _run_automation(
                         self._select_size_and_add_to_cart,
                         match["product_url"],
                         state["size"],
@@ -407,6 +432,11 @@ class SiteMonitor:
         if self.profile.detect_mode == "product":
             base = release_epoch if release_epoch is not None else datetime.now(timezone.utc).timestamp()
             deadline = base + self.profile.buy_window_seconds
+
+        # JS-heavy product pages render the size controls after load; wait for
+        # the canonical size selector before the first click attempt.
+        if size_selectors and _wait_for_render(page, size_selectors[0], timeout_ms=10_000):
+            log.append("Maatkeuze gerenderd.")
 
         attempt = 0
         size_ever_seen = False
@@ -670,6 +700,14 @@ def _any_visible(page: Any, selectors: list[str], timeout_ms: int = 2_500) -> bo
     return False
 
 
+def _wait_for_render(page: Any, selector: str, timeout_ms: int = 10_000) -> bool:
+    try:
+        page.locator(selector).first.wait_for(state="visible", timeout=timeout_ms)
+        return True
+    except Exception:
+        return False
+
+
 def _settle(page: Any) -> None:
     try:
         page.wait_for_timeout(750)
@@ -690,6 +728,7 @@ def _wait_for_cart_sidebar(page: Any, selectors: list[str], log: list[str]) -> N
 
 
 def _automation_page(site_key: str, log: list[str]) -> tuple[Any, Any]:
+    playwright = _get_playwright()
     context = OPEN_CONTEXTS.get(site_key)
     if context is not None:
         _playwright, ctx = context
@@ -699,7 +738,6 @@ def _automation_page(site_key: str, log: list[str]) -> tuple[Any, Any]:
         except Exception:
             OPEN_CONTEXTS.pop(site_key, None)
 
-    playwright = sync_playwright().start()
     ctx = _launch_persistent_context(playwright, site_key)
     OPEN_CONTEXTS[site_key] = (playwright, ctx)
     log.append("Automation-browser geopend (persistente sessie).")
