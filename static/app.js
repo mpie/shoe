@@ -41,6 +41,7 @@ function ensurePanel(monitor) {
     intervalSeconds: root.querySelector(".f-intervalSeconds"),
     size: root.querySelector(".f-size"),
     startButton: root.querySelector(".startButton"),
+    testButton: root.querySelector(".testButton"),
     stopButton: root.querySelector(".stopButton"),
     clearButton: root.querySelector(".clearButton"),
     stateLabel: root.querySelector(".stateLabel"),
@@ -60,6 +61,18 @@ function ensurePanel(monitor) {
       intervalSeconds: Number(panel.intervalSeconds.value || 20),
       size: panel.size.value || "",
     });
+    await refreshStatus();
+  });
+
+  panel.testButton.addEventListener("click", async () => {
+    openedMatchUrls.delete(monitor.id);
+    await requestNotifications();
+    const test = panel.test || {};
+    panel.searchText.value = test.searchText ?? panel.searchText.value;
+    panel.targetUrl.value = test.targetUrl ?? panel.targetUrl.value;
+    if (test.size) panel.size.value = test.size;
+    if (test.intervalSeconds) panel.intervalSeconds.value = test.intervalSeconds;
+    await postJson(`/api/test/${monitor.id}`, {});
     await refreshStatus();
   });
 
@@ -134,6 +147,7 @@ async function refreshStatus() {
 
 function renderMonitor(panel, monitor) {
   panel.title.textContent = monitor.label;
+  panel.test = monitor.test;
 
   if (!panel.initialized) {
     panel.searchText.value = monitor.searchText ?? "";

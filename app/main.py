@@ -64,6 +64,11 @@ async def start(monitor_id: str, request: StartMonitorRequest) -> dict:
     )
 
 
+@app.post("/api/test/{monitor_id}")
+async def test(monitor_id: str) -> dict:
+    return await _monitor_or_404(monitor_id).test()
+
+
 @app.post("/api/stop/{monitor_id}")
 async def stop(monitor_id: str) -> dict:
     return await _monitor_or_404(monitor_id).stop()

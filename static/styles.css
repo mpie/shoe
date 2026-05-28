@@ -123,6 +123,17 @@ button:active {
   box-shadow: 0 10px 28px rgba(162, 148, 249, 0.5);
 }
 
+.accent {
+  background: rgba(162, 148, 249, 0.16);
+  color: var(--accent-2);
+  border: 1px solid var(--border-strong);
+}
+
+.accent:hover {
+  background: rgba(162, 148, 249, 0.26);
+  color: #fff;
+}
+
 .secondary {
   background: var(--surface-2);
   color: var(--ink);

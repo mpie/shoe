@@ -114,6 +114,13 @@ class SiteProfile:
     # Product mode: keep retrying size+add-to-cart for this long after release
     # while the live buy button appears.
     buy_window_seconds: int = 180
+    # Test button presets. test_mode "monitor" runs a normal start with these
+    # params; "automate" skips detection and carts the test URL directly.
+    test_mode: str = "monitor"
+    test_search_text: str = ""
+    test_target_url: str = ""
+    test_size: str = ""
+    test_interval_seconds: int = 15
     size_selectors: Callable[[str], list[str]] = None  # set below
 
     def credentials(self) -> Credentials:
@@ -284,6 +291,10 @@ SOLEBOX = SiteProfile(
         '[aria-label*="afrekenen" i]',
     ],
     size_selectors=_solebox_size_selectors,
+    test_mode="monitor",
+    test_search_text="Bloodline",
+    test_target_url="https://www.solebox.com/en-nl/s/releases",
+    test_size="44",
 )
 
 
@@ -353,6 +364,10 @@ NAKEDCPH = SiteProfile(
         "add to bag",
     ],
     size_selectors=_nakedcph_size_selectors,
+    test_mode="automate",
+    test_search_text="adistar control 5 mary jane",
+    test_target_url="https://nakedcph.com/nl/products/adidas-ori-adistar-control-5-mary-jane-carbon-tegrme-ntgrey-la1824",
+    test_size="36",
 )
 
 

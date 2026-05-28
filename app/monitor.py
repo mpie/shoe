@@ -84,6 +84,13 @@ class SiteMonitor:
             return {
                 "id": self.profile.key,
                 "label": self.profile.label,
+                "test": {
+                    "mode": self.profile.test_mode,
+                    "searchText": self.profile.test_search_text,
+                    "targetUrl": self.profile.test_target_url,
+                    "size": self.profile.test_size,
+                    "intervalSeconds": self.profile.test_interval_seconds,
+                },
                 "loginConfigured": creds.present,
                 "loginUser": creds.username if creds.present else "",
                 "running": self._state.running,
@@ -133,6 +140,63 @@ class SiteMonitor:
 
         self._task = asyncio.create_task(self._run())
         return self.snapshot()
+
+    async def test(self) -> dict[str, Any]:
+        """Run the site's preset test scenario."""
+        p = self.profile
+        if p.test_mode == "monitor":
+            return await self.start(
+                search_text=p.test_search_text,
+                target_url=p.test_target_url,
+                interval_seconds=p.test_interval_seconds,
+                size=p.test_size,
+            )
+
+        # "automate": skip detection, cart the test URL directly.
+        await self.stop()
+        with self._lock:
+            self._state = MonitorState(
+                running=True,
+                search_text=p.test_search_text or "TEST",
+                target_url=p.test_target_url,
+                interval_seconds=p.test_interval_seconds,
+                size=p.test_size,
+            )
+            self._append_log_unlocked(
+                f"TEST: directe add-to-cart op {p.test_target_url} maat {p.test_size} (detectie overgeslagen)."
+            )
+        self._task = asyncio.create_task(self._run_test_automation())
+        return self.snapshot()
+
+    async def _run_test_automation(self) -> None:
+        state = self.snapshot()
+        try:
+            automation_log, outcome = await asyncio.to_thread(
+                self._select_size_and_add_to_cart,
+                state["targetUrl"],
+                state["size"],
+                None,
+            )
+            with self._lock:
+                self._state.running = False
+                self._state.checks += 1
+                self._state.last_checked_at = _now()
+                self._state.result = MonitorResult(
+                    matched_text=state["searchText"],
+                    product_url=state["targetUrl"],
+                    found_at=_now(),
+                    automation_log=automation_log,
+                    outcome=outcome,
+                )
+                for entry in automation_log:
+                    self._append_log_unlocked(f"Automation: {entry}")
+                self._append_log_unlocked(_outcome_message(outcome, state["size"]))
+                self._append_log_unlocked("Test afgerond.")
+        except Exception as exc:
+            with self._lock:
+                self._state.running = False
+                self._state.last_error = str(exc)
+                self._append_log_unlocked(f"Testfout: {exc}")
 
     async def stop(self) -> dict[str, Any]:
         if self._task is not None and not self._task.done():

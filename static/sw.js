@@ -1,4 +1,4 @@
-const CACHE = "sneaker-monitor-v2";
+const CACHE = "sneaker-monitor-v3";
 const ASSETS = ["/", "/app.js", "/styles.css", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
