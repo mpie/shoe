@@ -369,6 +369,7 @@ class SiteMonitor:
             try:
                 page.reload(wait_until="domcontentloaded", timeout=30_000)
                 _settle(page)
+                self._dismiss_popups(page, log)
             except Exception:
                 page.wait_for_timeout(1_000)
 
@@ -449,6 +450,33 @@ class SiteMonitor:
         if not clicked:
             log.append("No cookie window found.")
         _settle(page)
+        self._dismiss_popups(page, log)
+
+    def _dismiss_popups(self, page: Any, log: list[str]) -> None:
+        """Close newsletter / marketing overlays that intercept clicks."""
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+
+        if _click_first(page, self.profile.popup_close_selectors, log, "popup", timeout_ms=800):
+            _settle(page)
+            return
+
+        # Fallback: strip known Klaviyo overlay nodes so they stop blocking.
+        try:
+            removed = page.evaluate(
+                """() => {
+                    const sel = 'div[role=dialog][aria-label="POPUP Form"], .kl-private-reset-css, [class*=kl-private]';
+                    const nodes = document.querySelectorAll(sel);
+                    nodes.forEach(n => { try { n.remove(); } catch (e) {} });
+                    return nodes.length;
+                }"""
+            )
+            if removed:
+                log.append("Marketing-popup verwijderd.")
+        except Exception:
+            pass
 
 
 # --- Shared helpers ---------------------------------------------------------
@@ -544,7 +572,14 @@ def _click_first(page: Any, selectors: list[str], log: list[str], label: str, ti
             log.append(f"{label} aangeklikt.")
             return True
         except Exception:
-            continue
+            # Radio/label controls and overlay-covered buttons often reject a
+            # normal click; retry forcing past actionability checks.
+            try:
+                page.locator(selector).first.click(timeout=2_000, force=True)
+                log.append(f"{label} aangeklikt (force).")
+                return True
+            except Exception:
+                continue
     return False
 
 
@@ -640,16 +675,22 @@ def _size_variants(size: str) -> set[str]:
 
 
 def _size_unavailable_selectors(size: str) -> list[str]:
-    """Selectors matching a sold-out / disabled size control."""
+    """Selectors matching a sold-out / disabled size control.
+
+    NOTE: do NOT match on a bare ``disabled`` class — Tailwind utility classes
+    like ``peer-disabled:`` / ``disabled:`` sit on *every* control and would
+    flag available sizes. nakedcph marks sold-out sizes with ``line-through``
+    and a disabled radio input; match those specific signals only.
+    """
     selectors: list[str] = []
     for value in _size_variants(size):
         selectors.extend(
             [
+                f'xpath=//label[(@data-default-value="{value}" or @for="{value}") and contains(concat(" ", normalize-space(@class), " "), " line-through ")]',
+                f'xpath=//label[normalize-space()="{value}" and contains(concat(" ", normalize-space(@class), " "), " line-through ")]',
+                f'input[id="{value}"][disabled]',
                 f'xpath=//button[normalize-space()="{value}" and (@disabled or @aria-disabled="true")]',
                 f'xpath=//*[@role="button" and normalize-space()="{value}" and @aria-disabled="true"]',
-                f'xpath=//label[normalize-space()="{value}" and (@disabled or @aria-disabled="true")]',
-                f'xpath=//*[normalize-space()="{value}" and (contains(@class,"sold") or contains(@class,"disabled") or contains(@class,"unavailable") or contains(@class,"line-through"))]',
-                f'xpath=//*[normalize-space()="{value}"]/ancestor-or-self::*[self::button or self::label][@disabled or @aria-disabled="true"]',
             ]
         )
     return selectors

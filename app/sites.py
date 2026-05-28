@@ -82,6 +82,8 @@ class SiteProfile:
     login_stage: str
     login_url: str
     cookie_selectors: list[str]
+    # Newsletter / marketing overlays to close before interacting.
+    popup_close_selectors: list[str]
     login_email_selectors: list[str]
     login_password_selectors: list[str]
     login_submit_selectors: list[str]
@@ -138,26 +140,19 @@ def _solebox_size_selectors(size: str) -> list[str]:
 
 
 def _nakedcph_size_selectors(size: str) -> list[str]:
-    import re
-
-    escaped = re.escape(size)
-    # nakedcph uses comma decimals (e.g. "41,5"); accept both comma and dot.
+    # nakedcph (Shopify Hydrogen) renders sizes as a hidden radio + <label>.
+    # The label's `for` and `data-default-value` hold the exact value, so match
+    # those instead of text (text "36" would also hit "36 2/3").
     variants = {size, size.replace(".", ","), size.replace(",", ".")}
     selectors: list[str] = []
     for value in variants:
         selectors.extend(
             [
-                f'xpath=//button[normalize-space()="{value}"]',
+                f'label[data-default-value="{value}"]',
+                f'label[for="{value}"]',
                 f'xpath=//label[normalize-space()="{value}"]',
-                f'xpath=//*[normalize-space()="{value}"]/ancestor::button[1]',
-                f'xpath=//*[normalize-space()="{value}"]/ancestor::label[1]',
-                f'button:has-text("{value}")',
-                f'label:has-text("{value}")',
-                f'[aria-label="{value}"]',
-                f'[data-value="{value}"]',
             ]
         )
-    selectors.append(f'text=/^{escaped}$/')
     return selectors
 
 
@@ -176,6 +171,16 @@ _COOKIE_SELECTORS = [
     '[aria-label*="accept" i]',
     '[id*="accept" i]',
     '[data-testid*="accept" i]',
+]
+
+_POPUP_CLOSE_SELECTORS = [
+    "button.klaviyo-close-form",
+    '[aria-label="Close dialog"]',
+    'div[role="dialog"][aria-label="POPUP Form"] button[aria-label*="close" i]',
+    '[aria-label="Close form"]',
+    '[aria-label="Sluiten"]',
+    'div[role="dialog"] button[aria-label*="close" i]',
+    'div[role="dialog"] button[aria-label*="sluiten" i]',
 ]
 
 _LOGIN_EMAIL_SELECTORS = [
@@ -236,6 +241,7 @@ SOLEBOX = SiteProfile(
     login_stage="checkout",
     login_url="https://www.solebox.com/en-nl/login/",
     cookie_selectors=_COOKIE_SELECTORS,
+    popup_close_selectors=_POPUP_CLOSE_SELECTORS,
     login_email_selectors=_LOGIN_EMAIL_SELECTORS,
     login_password_selectors=_LOGIN_PASSWORD_SELECTORS,
     login_submit_selectors=_LOGIN_SUBMIT_SELECTORS,
@@ -295,20 +301,21 @@ NAKEDCPH = SiteProfile(
         'button:has-text("Accepteer")',
         'button:has-text("Akkoord")',
     ],
+    popup_close_selectors=_POPUP_CLOSE_SELECTORS,
     login_email_selectors=_LOGIN_EMAIL_SELECTORS,
     login_password_selectors=_LOGIN_PASSWORD_SELECTORS,
     login_submit_selectors=_LOGIN_SUBMIT_SELECTORS,
     logged_in_selectors=_LOGGED_IN_SELECTORS,
     add_to_cart_selectors=[
-        'form[action*="/cart/add"] button[type="submit"]',
-        'button[name="add"]',
-        'button:has-text("In winkelwagen")',
+        'form[action*="/cart/add"] button:has-text("Toevoegen aan winkelwagen")',
+        'form[action*="/cart/add"] button:has-text("In winkelwagen")',
         'button:has-text("Toevoegen aan winkelwagen")',
         'button:has-text("Voeg toe aan winkelwagen")',
+        'button:has-text("In winkelwagen")',
         'button:has-text("Add to cart")',
         'button:has-text("Add to bag")',
+        'form[action*="/cart/add"] button[type="submit"]',
         '[aria-label*="winkelwagen" i]',
-        '[aria-label*="add to cart" i]',
     ],
     cart_sidebar_selectors=[
         'text="Winkelwagen"',
