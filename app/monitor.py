@@ -45,6 +45,8 @@ class MonitorResult:
     product_url: str
     found_at: str
     automation_log: list[str] = field(default_factory=list)
+    # "carted" | "sold_out" | "size_not_found" | "failed"
+    outcome: str = "carted"
 
 
 @dataclass
@@ -100,6 +102,7 @@ class SiteMonitor:
                     "productUrl": self._state.result.product_url,
                     "foundAt": self._state.result.found_at,
                     "automationLog": self._state.result.automation_log,
+                    "outcome": self._state.result.outcome,
                 },
             }
 
@@ -185,7 +188,7 @@ class SiteMonitor:
                         )
                         self._append_log_unlocked(f'Automatisering gestart voor maat {state["size"]}.')
 
-                    automation_log = await asyncio.to_thread(
+                    automation_log, outcome = await asyncio.to_thread(
                         self._select_size_and_add_to_cart,
                         match["product_url"],
                         state["size"],
@@ -198,9 +201,11 @@ class SiteMonitor:
                             product_url=match["product_url"],
                             found_at=_now(),
                             automation_log=automation_log,
+                            outcome=outcome,
                         )
                         for entry in automation_log:
                             self._append_log_unlocked(f"Automation: {entry}")
+                        self._append_log_unlocked(_outcome_message(outcome, state["size"]))
                         self._append_log_unlocked("Monitor gestopt na match.")
                     return
             except Exception as exc:
@@ -280,10 +285,11 @@ class SiteMonitor:
 
     def _select_size_and_add_to_cart(
         self, product_url: str, size: str, release_epoch: float | None = None
-    ) -> list[str]:
+    ) -> tuple[list[str], str]:
         log: list[str] = []
         context = None
         page = None
+        outcome = "failed"
 
         try:
             context, page = _automation_page(self.profile.key, log)
@@ -298,10 +304,10 @@ class SiteMonitor:
             self._handle_cookie_window(page, log)
             _ensure_product_page(page, product_url, log)
 
-            cart_clicked = self._grab_size_and_cart(page, product_url, size, release_epoch, log)
-            if not cart_clicked:
+            outcome = self._grab_size_and_cart(page, product_url, size, release_epoch, log)
+            if outcome != "carted":
                 _keep_open(self.profile.key, context, log)
-                return log
+                return log, outcome
 
             log.append("Waiting for shopping cart before checkout.")
             _wait_for_cart_sidebar(page, self.profile.cart_sidebar_selectors, log)
@@ -319,13 +325,18 @@ class SiteMonitor:
             if context is not None:
                 _keep_open(self.profile.key, context, log)
 
-        return log
+        return log, outcome
 
     def _grab_size_and_cart(
         self, page: Any, product_url: str, size: str, release_epoch: float | None, log: list[str]
-    ) -> bool:
-        """Click size + add-to-cart. For timed drops, retry while the live buy
-        button appears (page reloaded each round) until the buy window closes.
+    ) -> str:
+        """Click size + add-to-cart and return the outcome.
+
+        For timed drops, retry while the live buy button appears (page reloaded
+        each round) until the buy window closes. If the size turns out to be
+        sold out, report that explicitly instead of a generic failure.
+
+        Returns one of: "carted", "sold_out", "size_not_found", "failed".
         """
         size_selectors = self.profile.size_selectors(size)
         deadline = None
@@ -334,15 +345,25 @@ class SiteMonitor:
             deadline = base + self.profile.buy_window_seconds
 
         attempt = 0
+        size_ever_seen = False
         while True:
             attempt += 1
-            _click_first(page, size_selectors, log, f"size {size}", timeout_ms=4_000)
+            size_clicked = _click_first(page, size_selectors, log, f"size {size}", timeout_ms=4_000)
+            size_ever_seen = size_ever_seen or size_clicked
+
             if _click_first(page, self.profile.add_to_cart_selectors, log, "shopping cart", timeout_ms=4_000):
-                return True
+                return "carted"
+
+            if self._size_sold_out(page, size):
+                log.append(f"Maat {size} is uitverkocht / niet meer beschikbaar.")
+                return "sold_out"
 
             if deadline is None or datetime.now(timezone.utc).timestamp() > deadline:
-                log.append(f"Could not click shopping cart button (poging {attempt}).")
-                return False
+                if not size_ever_seen:
+                    log.append(f"Maat {size} niet gevonden op de pagina.")
+                    return "size_not_found"
+                log.append(f"Add-to-cart niet gelukt na {attempt} pogingen.")
+                return "failed"
 
             log.append(f"Knop nog niet live (poging {attempt}); herladen en opnieuw proberen.")
             try:
@@ -350,6 +371,22 @@ class SiteMonitor:
                 _settle(page)
             except Exception:
                 page.wait_for_timeout(1_000)
+
+    def _size_sold_out(self, page: Any, size: str) -> bool:
+        """Detect a sold-out size: a disabled/struck size control, or a
+        sold-out marker text visible on the page."""
+        for selector in _size_unavailable_selectors(size):
+            try:
+                if page.locator(selector).first.is_visible(timeout=1_000):
+                    return True
+            except Exception:
+                continue
+
+        try:
+            page_text = _normalize(page.locator("body").inner_text(timeout=2_000))
+        except Exception:
+            return False
+        return any(_normalize(marker) in page_text for marker in self.profile.sold_out_markers)
 
     def _ensure_login(self, page: Any, log: list[str]) -> None:
         """Upfront login: navigate to the site's own login page first."""
@@ -596,6 +633,35 @@ def _keep_open(site_key: str, context: Any, log: list[str]) -> None:
     if site_key not in OPEN_CONTEXTS:
         OPEN_CONTEXTS[site_key] = (None, context)
     log.append("Browser blijft open voor afronden.")
+
+
+def _size_variants(size: str) -> set[str]:
+    return {v for v in {size, size.replace(".", ","), size.replace(",", ".")} if v}
+
+
+def _size_unavailable_selectors(size: str) -> list[str]:
+    """Selectors matching a sold-out / disabled size control."""
+    selectors: list[str] = []
+    for value in _size_variants(size):
+        selectors.extend(
+            [
+                f'xpath=//button[normalize-space()="{value}" and (@disabled or @aria-disabled="true")]',
+                f'xpath=//*[@role="button" and normalize-space()="{value}" and @aria-disabled="true"]',
+                f'xpath=//label[normalize-space()="{value}" and (@disabled or @aria-disabled="true")]',
+                f'xpath=//*[normalize-space()="{value}" and (contains(@class,"sold") or contains(@class,"disabled") or contains(@class,"unavailable") or contains(@class,"line-through"))]',
+                f'xpath=//*[normalize-space()="{value}"]/ancestor-or-self::*[self::button or self::label][@disabled or @aria-disabled="true"]',
+            ]
+        )
+    return selectors
+
+
+def _outcome_message(outcome: str, size: str) -> str:
+    return {
+        "carted": "In winkelwagen gelegd; rond af in de browser.",
+        "sold_out": f"Maat {size} is uitverkocht / niet meer beschikbaar.",
+        "size_not_found": f"Maat {size} niet gevonden op de pagina.",
+        "failed": "Add-to-cart niet gelukt; rond handmatig af in de browser.",
+    }.get(outcome, "Automatisering afgerond.")
 
 
 _RELEASE_DATE_RE = re.compile(r'"releaseDate"\s*:\s*"([^"]+)"')

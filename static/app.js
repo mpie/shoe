@@ -155,7 +155,7 @@ function renderMonitor(panel, monitor) {
   panel.stopButton.disabled = !monitor.running;
 
   if (monitor.result) {
-    panel.message.textContent = "Gevonden. Checkout is geopend; rond af in de browser.";
+    panel.message.textContent = outcomeMessage(monitor.result.outcome, monitor.size);
   } else if (monitor.lastError) {
     panel.message.textContent = `Laatste fout: ${monitor.lastError}`;
   } else {
@@ -193,7 +193,7 @@ function renderLogEntry(entry) {
 }
 
 function getLogType(message) {
-  if (/fout|failed|could not|timed out/i.test(message)) return "error";
+  if (/fout|failed|could not|timed out|uitverkocht|niet meer beschikbaar|niet gevonden|sold out/i.test(message)) return "error";
   if (/gevonden|match/i.test(message)) return "found";
   if (/checkout|shopping cart|cart|ingelogd|login/i.test(message)) return "cart";
   if (/automation|clicked|browser|aangeklikt|ingevuld/i.test(message)) return "auto";
@@ -227,11 +227,30 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function outcomeMessage(outcome, size) {
+  switch (outcome) {
+    case "carted":
+      return "In winkelwagen gelegd. Checkout is geopend; rond af in de browser.";
+    case "sold_out":
+      return `Maat ${size} is UITVERKOCHT / niet meer beschikbaar.`;
+    case "size_not_found":
+      return `Maat ${size} niet gevonden op de pagina.`;
+    case "failed":
+      return "Add-to-cart niet gelukt; rond handmatig af in de browser.";
+    default:
+      return "Gevonden. Rond af in de browser.";
+  }
+}
+
 async function announceMatch(monitor) {
   playAlertSound();
 
-  const title = `${monitor.label} match gevonden`;
-  const body = `${monitor.result.matchedText} is gevonden. Checkout wordt geopend.`;
+  const outcome = monitor.result.outcome;
+  const title =
+    outcome === "sold_out"
+      ? `${monitor.label}: maat uitverkocht`
+      : `${monitor.label} match gevonden`;
+  const body = `${monitor.result.matchedText} — ${outcomeMessage(outcome, monitor.size)}`;
 
   if (Notification.permission === "granted") {
     const registration = await navigator.serviceWorker?.ready;

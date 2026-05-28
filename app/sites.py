@@ -94,6 +94,18 @@ class SiteProfile:
     coming_soon_markers: list[str] = field(default_factory=list)
     # For product mode: presence of any (with no coming-soon marker) -> buy now.
     purchasable_markers: list[str] = field(default_factory=list)
+    # Text that signals the (selected) size / product is sold out.
+    sold_out_markers: list[str] = field(
+        default_factory=lambda: [
+            "uitverkocht",
+            "niet meer beschikbaar",
+            "niet beschikbaar",
+            "sold out",
+            "out of stock",
+            "not available",
+            "no longer available",
+        ]
+    )
     # Product mode: open the browser this many seconds before the parsed
     # releaseDate so login + page load finish before the drop goes live.
     prearm_seconds: int = 45
