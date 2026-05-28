@@ -1,0 +1,17 @@
+{
+  "name": "Solebox Scrapling Monitor",
+  "short_name": "Solebox Monitor",
+  "description": "Monitor Solebox met Scrapling en ontvang een notificatie bij een match.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5EFFF",
+  "theme_color": "#A294F9",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

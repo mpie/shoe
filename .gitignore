@@ -1,0 +1,16 @@
+# Secrets — never commit login credentials
+config/credentials.json
+config/sessions/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.build-venv/
+.playwright-browsers/
+
+# Build output
+build/
+dist/
+
+.DS_Store

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="128" y1="128" x2="896" y2="896" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5EFFF"/>
+      <stop offset="0.52" stop-color="#CDC1FF"/>
+      <stop offset="1" stop-color="#A294F9"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#43327f" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" rx="236" fill="url(#bg)"/>
+  <path fill="#1f1a2e" opacity="0.12" d="M190 715c163 20 345 21 571 1 61-5 91 76 38 106-64 36-172 50-328 47-177-3-282-28-333-73-37-33 3-88 52-81Z"/>
+  <g filter="url(#shadow)">
+    <path fill="#1f1a2e" d="M163 623c112-4 209-33 290-88 54-36 85-89 131-155 15-22 46-25 65-6l156 153c22 22 52 35 83 37l39 3c25 2 44 23 44 48v77c0 31-25 57-56 58-267 10-507 11-720 2-45-2-76-45-63-88l14-43c2-7 9-12 17-12Z"/>
+    <path fill="#F5EFFF" d="M179 634c112-2 217-34 311-96 49-33 80-82 123-143 5-8 16-9 23-2l149 146c28 28 66 45 105 48l35 3c13 1 23 12 23 25v61c0 15-12 28-28 29-263 9-502 10-714 1-19-1-32-20-27-38l10-34Z"/>
+    <path fill="#1f1a2e" d="M240 628c99-11 183-40 253-87 43-29 72-70 106-120l56 56c-37 56-85 100-144 132-69 37-159 57-271 61v-42Z"/>
+    <path fill="#A294F9" d="M646 492l38 38-176 31-35-26 173-43Z"/>
+    <path fill="#CDC1FF" d="M331 652h494c32 0 58 26 58 58H224c17-35 52-58 107-58Z"/>
+    <path fill="#1f1a2e" d="M345 523c-9-11-7-27 4-36l89-70c11-9 27-7 36 4s7 27-4 36l-89 70c-11 9-27 7-36-4Zm82 39c-9-11-7-27 4-36l90-70c11-9 27-7 36 4s7 27-4 36l-90 70c-11 9-27 7-36-4Zm88 31c-9-11-7-27 4-36l89-70c11-9 27-7 36 4s7 27-4 36l-89 70c-11 9-27 7-36-4Z"/>
+    <circle cx="327" cy="707" r="28" fill="#1f1a2e"/>
+    <circle cx="750" cy="707" r="28" fill="#1f1a2e"/>
+  </g>
+</svg>

@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+scrapling[fetchers]==0.4.8
+beautifulsoup4
