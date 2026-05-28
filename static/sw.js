@@ -1,18 +1,18 @@
+const CACHE = "sneaker-monitor-v2";
+const ASSETS = ["/", "/app.js", "/styles.css", "/manifest.webmanifest", "/icon.svg"];
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open("solebox-monitor-v1").then((cache) => cache.addAll([
-      "/",
-      "/app.js",
-      "/styles.css",
-      "/manifest.webmanifest",
-      "/icon.svg",
-    ])),
-  );
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  );
 });
 
 self.addEventListener("fetch", (event) => {
@@ -20,8 +20,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-first, bypassing the HTTP cache so updated assets always win.
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request)),
+    fetch(event.request, { cache: "no-store" }).catch(() => caches.match(event.request)),
   );
 });
 
