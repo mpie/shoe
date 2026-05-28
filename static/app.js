@@ -156,18 +156,22 @@ function renderMonitor(panel, monitor) {
 
   if (monitor.result) {
     panel.message.textContent = outcomeMessage(monitor.result.outcome, monitor.size);
+    panel.root.dataset.state = monitor.result.outcome === "carted" ? "done" : "error";
   } else if (monitor.lastError) {
     panel.message.textContent = `Laatste fout: ${monitor.lastError}`;
+    panel.root.dataset.state = "error";
+  } else if (monitor.running) {
+    panel.message.textContent = `Zoekt naar "${monitor.searchText}"...`;
+    panel.root.dataset.state = "running";
   } else {
-    panel.message.textContent = monitor.running
-      ? `Zoekt naar "${monitor.searchText}"...`
-      : "Klaar om te starten.";
+    panel.message.textContent = "Klaar om te starten.";
+    panel.root.dataset.state = "idle";
   }
 }
 
 function renderLog(logList, entries) {
   if (entries.length === 0) {
-    logList.innerHTML = "<li>Nog geen activiteit.</li>";
+    logList.innerHTML = '<li class="log-empty">Nog geen activiteit.</li>';
     return;
   }
 

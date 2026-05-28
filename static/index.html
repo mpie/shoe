@@ -3,76 +3,87 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#A294F9">
+    <meta name="theme-color" content="#0c0a14">
     <title>Sneaker Monitor</title>
     <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <main class="shell">
-      <section class="card hero">
-        <p class="eyebrow">Scrapling monitor</p>
-        <h1>Sneaker auto-checker</h1>
-        <p>Meerdere shops tegelijk bewaken. Elke shop gebruikt zijn eigen login.</p>
-        <div class="actions">
-          <button id="notifyButton" class="ghost" type="button">Notificaties</button>
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div class="brand-text">
+            <span class="brand-name">Sneaker Monitor</span>
+            <span class="brand-sub">Realtime drop-checker</span>
+          </div>
         </div>
-      </section>
+        <button id="notifyButton" class="ghost" type="button">
+          <span class="bell" aria-hidden="true"></span>
+          Notificaties
+        </button>
+      </header>
 
-      <div id="monitors"></div>
+      <div id="monitors" class="monitor-grid"></div>
     </main>
 
     <template id="monitorTemplate">
-      <section class="card monitor" data-id="">
-        <div class="log-header">
-          <h2 class="monitor-title"></h2>
+      <section class="card monitor" data-id="" data-state="idle">
+        <div class="monitor-head">
+          <div class="monitor-id">
+            <span class="status-dot" aria-hidden="true"></span>
+            <h2 class="monitor-title"></h2>
+          </div>
           <span class="login-badge"></span>
         </div>
 
-        <form class="controls monitor-form">
-          <label>
-            Zoektekst
-            <input class="f-searchText" autocomplete="off">
+        <form class="monitor-form">
+          <label class="field">
+            <span class="field-label">Zoektekst</span>
+            <input class="f-searchText" autocomplete="off" spellcheck="false">
           </label>
 
-          <label>
-            URL
-            <input class="f-targetUrl" autocomplete="off">
+          <label class="field">
+            <span class="field-label">URL</span>
+            <input class="f-targetUrl" autocomplete="off" spellcheck="false">
           </label>
 
           <div class="grid">
-            <label>
-              Interval
+            <label class="field">
+              <span class="field-label">Interval (s)</span>
               <input class="f-intervalSeconds" type="number" min="5" value="20">
             </label>
-
-            <label>
-              Maat
-              <input class="f-size" autocomplete="off">
+            <label class="field">
+              <span class="field-label">Maat</span>
+              <input class="f-size" autocomplete="off" spellcheck="false">
             </label>
           </div>
 
           <div class="actions">
-            <button class="startButton" type="submit">Start</button>
+            <button class="startButton primary" type="submit">Start</button>
             <button class="stopButton secondary" type="button">Stop</button>
             <button class="clearButton ghost" type="button">Log wissen</button>
           </div>
         </form>
 
-        <div class="status-grid">
-          <div class="status-row">
-            <span>Status</span>
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-key">Status</span>
             <strong class="stateLabel">Niet actief</strong>
           </div>
-          <div class="status-row">
-            <span>Checks</span>
+          <div class="stat">
+            <span class="stat-key">Checks</span>
             <strong class="checksLabel">0</strong>
           </div>
         </div>
+
         <p class="message">Klaar om te starten.</p>
 
         <ol class="log-list">
-          <li>Nog geen activiteit.</li>
+          <li class="log-empty">Nog geen activiteit.</li>
         </ol>
       </section>
     </template>
